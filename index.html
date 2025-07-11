@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LHT Team Attendance Tracker</title>
+  <title>LHT Team Attendance Tracker (Demo Mode)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
   <style>
     body { background-color: #f8f9fa; padding: 20px; }
@@ -16,7 +16,7 @@
 <body>
   <div class="container">
     <div class="text-center">
-      <h2>LHT Team Attendance Tracker</h2>
+      <h2>LHT Team Attendance Tracker (Demo Mode)</h2>
       <p id="currentTime" class="fw-bold"></p>
     </div>
     <table class="table table-bordered table-striped">
@@ -34,7 +34,7 @@
   </div>
 
   <script>
-    const webhookURL = "https://hook.us2.make.com/em9jjvw8cl7jib2ff0ov56es0hh9fodh";
+    const webhookURL = "https://hook.us2.make.com/em9jjvw8cl7jib2ff0ov56es0hh9fodl";
 
     const employees = [
       { id: "EMP001", name: "Adrian Gonzales" },
@@ -46,14 +46,6 @@
     ];
 
     const actions = ["login", "break", "back", "logout"];
-
-    // Clear localStorage if date changed
-    const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
-    const lastDate = localStorage.getItem("lastLoginDate");
-    if (lastDate !== today) {
-      localStorage.clear();
-      localStorage.setItem("lastLoginDate", today);
-    }
 
     function updateTime() {
       const now = new Date().toLocaleString("en-US", {
@@ -73,50 +65,69 @@
     function buildTable() {
       const tableBody = document.getElementById("attendanceTable");
       employees.sort((a, b) => a.name.localeCompare(b.name));
+
       employees.forEach(emp => {
         const row = document.createElement("tr");
-        row.innerHTML = `<td>${emp.name}</td>`;
+        const nameCell = document.createElement("td");
+        nameCell.textContent = emp.name;
+        row.appendChild(nameCell);
 
-        actions.forEach(action => {
+        const buttonMap = {};
+
+        actions.forEach((action, index) => {
           const td = document.createElement("td");
           const button = document.createElement("button");
+          const timestampSpan = document.createElement("span");
+
           button.className = "btn btn-outline-primary btn-sm";
           button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
-          const timestampSpan = document.createElement("span");
           timestampSpan.className = "timestamp";
 
-          const saved = localStorage.getItem(`${emp.id}_${action}`);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            timestampSpan.textContent = parsed.timeLabel;
-            button.disabled = parsed.disabled;
-            button.classList.remove("btn-outline-primary");
-            button.classList.add("btn-success");
-          }
+          if (index !== 0) button.disabled = true;
 
           button.addEventListener("click", () => {
-            const timestamp = new Date().toLocaleTimeString("en-US", { timeZone: "America/Chicago" });
-            timestampSpan.textContent = timestamp;
+            if (!confirm(`Are you sure you want to ${action.toUpperCase()} for ${emp.name}?`)) return;
+
+            const now = new Date();
+            const isoTimestamp = now.toISOString();
+
+            const timeCST = now.toLocaleTimeString("en-US", {
+              timeZone: "America/Chicago",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true
+            });
+
+            const dateCST = now.toLocaleDateString("en-CA", {
+              timeZone: "America/Chicago"
+            });
+
+            timestampSpan.textContent = timeCST;
             button.disabled = true;
             button.classList.remove("btn-outline-primary");
             button.classList.add("btn-success");
 
-            localStorage.setItem(`${emp.id}_${action}`, JSON.stringify({
-              timeLabel: timestamp,
-              disabled: true
-            }));
+            // Enable the next button
+            const nextAction = actions[index + 1];
+            if (nextAction && buttonMap[nextAction]) {
+              buttonMap[nextAction].disabled = false;
+            }
 
             fetch(webhookURL, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                employee_id: emp.id,
-                employee_name: emp.name,
+                name: emp.name,
                 action: action,
-                timestamp: timestamp
+                timestamp: isoTimestamp,
+                time_cst: timeCST,
+                date_cst: dateCST
               })
             });
           });
+
+          buttonMap[action] = button;
 
           td.appendChild(button);
           td.appendChild(timestampSpan);
@@ -133,4 +144,3 @@
   </script>
 </body>
 </html>
-
